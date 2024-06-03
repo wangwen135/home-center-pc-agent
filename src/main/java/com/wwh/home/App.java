@@ -1,5 +1,6 @@
 package com.wwh.home;
 
+import com.wwh.home.service.SocketServer;
 import com.wwh.home.service.WolListener;
 
 /**
@@ -10,9 +11,21 @@ public class App {
         System.out.println("Start home-center-pc-agent ...");
 
         Thread wolListenerThread = new Thread(new WolListener());
-//        wolListenerThread.setDaemon(true);
+        wolListenerThread.setDaemon(true);
         wolListenerThread.start();
 
+        Thread.yield();
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
 
+        System.out.println("");
+        System.out.println("-------------------------------");
+        SocketServer socketServer = new SocketServer();
+        socketServer.start();
+
+        System.out.println("stop");
     }
 }

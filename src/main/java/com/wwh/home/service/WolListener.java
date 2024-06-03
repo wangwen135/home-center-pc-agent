@@ -32,7 +32,7 @@ public class WolListener implements Runnable {
 
     @Override
     public void run() {
-
+        System.out.println("========= Start WOL Listener =========");
         List<String> macList = MacAddressUtil.getAllMacAddress();
         if (macList == null || macList.isEmpty()) {
             System.err.println("The mac address was not obtained,WolListener Startup failed!");
