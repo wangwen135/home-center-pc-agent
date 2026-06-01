@@ -16,6 +16,7 @@
     </dependencies>
 
     <build>
+        <finalName>home-center-pc-agent-${project.version}</finalName>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
