@@ -3,6 +3,7 @@ package com.wwh.home.service;
 import com.wwh.home.service.dto.CmdResult;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -12,6 +13,7 @@ import java.util.concurrent.TimeUnit;
  * 远程命令执行服务
  */
 public class CommandExecutionService {
+    private static final String SETSID_COMMAND = findExecutable("/usr/bin/setsid", "/bin/setsid");
 
     public CmdResult execute(String command, int timeoutSeconds, int maxOutputBytes) {
         CmdResult result = new CmdResult();
@@ -74,6 +76,10 @@ public class CommandExecutionService {
         if (isWindows()) {
             return new ProcessBuilder("cmd.exe", "/c", command);
         }
+        if (SETSID_COMMAND != null) {
+            // Linux 下使用独立进程组，超时后可以清理 shell 及其子进程。
+            return new ProcessBuilder(SETSID_COMMAND, "/bin/sh", "-c", command);
+        }
         return new ProcessBuilder("/bin/sh", "-c", command);
     }
 
@@ -82,18 +88,23 @@ public class CommandExecutionService {
     }
 
     private void killProcess(Process process) {
+        Long pid = getProcessId(process);
         try {
-            Long pid = getProcessId(process);
             if (isWindows() && pid != null) {
                 new ProcessBuilder("taskkill", "/T", "/F", "/PID", String.valueOf(pid)).start().waitFor(5, TimeUnit.SECONDS);
+            } else if (pid != null && SETSID_COMMAND != null) {
+                killUnixProcessGroup(pid, "-TERM");
             }
         } catch (Exception e) {
-            System.err.println("taskkill 进程树失败: " + e.getMessage());
+            System.err.println("终止进程树失败: " + e.getMessage());
         }
 
         try {
             process.destroy();
             if (!process.waitFor(2, TimeUnit.SECONDS)) {
+                if (!isWindows() && pid != null && SETSID_COMMAND != null) {
+                    killUnixProcessGroup(pid, "-KILL");
+                }
                 process.destroyForcibly();
             }
         } catch (Exception e) {
@@ -110,6 +121,20 @@ public class CommandExecutionService {
             }
         } catch (Exception e) {
             System.err.println("当前 Java 版本不支持获取进程 PID: " + e.getMessage());
+        }
+        return null;
+    }
+
+    private void killUnixProcessGroup(Long pid, String signal) throws IOException, InterruptedException {
+        new ProcessBuilder("kill", signal, "-" + pid).start().waitFor(5, TimeUnit.SECONDS);
+    }
+
+    private static String findExecutable(String... candidates) {
+        for (String candidate : candidates) {
+            File file = new File(candidate);
+            if (file.isFile() && file.canExecute()) {
+                return candidate;
+            }
         }
         return null;
     }
