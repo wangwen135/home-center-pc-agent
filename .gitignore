@@ -34,3 +34,6 @@ replay_pid*
 
 # AI agent config
 AGENTS.md
+
+# AI dev script (local only)
+dev-restart.sh
