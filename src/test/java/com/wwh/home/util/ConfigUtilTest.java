@@ -1,7 +1,6 @@
 package com.wwh.home.util;
 
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
@@ -15,45 +14,42 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class ConfigUtilTest {
 
     @AfterEach
-    void 清理配置文件() throws Exception {
+    void cleanupConfigFile() throws Exception {
         Files.deleteIfExists(configPath());
         ConfigUtil.reload();
     }
 
     @Test
-    @DisplayName("配置读取：文件存在时读取 UTF-8 key value")
-    void 配置读取_文件存在时读取值() throws Exception {
+    void readsUtf8KeyValuesWhenConfigFileExists() throws Exception {
         Files.createDirectories(configPath().getParent());
-        Files.write(configPath(), "access.token=测试-token\ncmd.enabled=false\n".getBytes(StandardCharsets.UTF_8));
+        Files.write(configPath(), "server.url=http://127.0.0.1:8867\ncmd.enabled=false\n".getBytes(StandardCharsets.UTF_8));
 
         ConfigUtil.reload();
 
-        assertEquals("测试-token", ConfigUtil.get("access.token", "changeme"));
+        assertEquals("http://127.0.0.1:8867", ConfigUtil.get("server.url", "http://localhost"));
         assertEquals("false", ConfigUtil.get("cmd.enabled", "true"));
     }
 
     @Test
-    @DisplayName("配置读取：缺失 key 返回默认值")
-    void 配置读取_缺失Key返回默认值() throws Exception {
+    void returnsDefaultValueWhenKeyIsMissing() throws Exception {
         Files.deleteIfExists(configPath());
 
         ConfigUtil.reload();
 
-        assertEquals("默认值", ConfigUtil.get("missing.key", "默认值"));
+        assertEquals("default-value", ConfigUtil.get("missing.key", "default-value"));
         assertEquals("", ConfigUtil.get("missing.key"));
     }
 
     @Test
-    @DisplayName("配置读取：文件删除后 reload 清空旧值")
-    void 配置读取_文件删除后Reload清空旧值() throws Exception {
+    void reloadClearsOldValuesAfterConfigFileIsDeleted() throws Exception {
         Files.createDirectories(configPath().getParent());
-        Files.write(configPath(), "access.token=old\n".getBytes(StandardCharsets.UTF_8));
+        Files.write(configPath(), "server.url=http://old-server\n".getBytes(StandardCharsets.UTF_8));
         ConfigUtil.reload();
 
         Files.deleteIfExists(configPath());
         ConfigUtil.reload();
 
-        assertEquals("new-default", ConfigUtil.get("access.token", "new-default"));
+        assertEquals("http://new-server", ConfigUtil.get("server.url", "http://new-server"));
     }
 
     private static Path configPath() throws URISyntaxException {

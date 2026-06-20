@@ -2,28 +2,24 @@ package com.wwh.home.service;
 
 import com.wwh.home.util.ConfigUtil;
 
-import java.awt.*;
+import javax.imageio.ImageIO;
+import java.awt.AWTException;
+import java.awt.Rectangle;
+import java.awt.Robot;
+import java.awt.Toolkit;
 import java.awt.image.BufferedImage;
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import javax.imageio.ImageIO;
 
-/**
- * 屏幕截图服务
- * 使用 java.awt.Robot 截屏，上传到服务器
- *
- * @author wangwh
- */
 public class ScreenshotService {
 
-    /**
-     * 截取屏幕并返回 PNG 字节数组
-     *
-     * @return PNG 格式的字节数组
-     */
     public static byte[] captureScreen() {
         try {
             Robot robot = new Robot();
@@ -36,26 +32,24 @@ public class ScreenshotService {
             byte[] imageBytes = baos.toByteArray();
             baos.close();
 
-            System.out.println("截屏成功，图片大小: " + imageBytes.length + " bytes");
+            System.out.println("Screenshot captured: " + imageBytes.length + " bytes");
             return imageBytes;
         } catch (AWTException e) {
-            System.err.println("截屏失败（AWTException）: " + e.getMessage());
+            System.err.println("Screenshot failed: " + e.getMessage());
             return null;
         } catch (IOException e) {
-            System.err.println("截屏失败（IOException）: " + e.getMessage());
+            System.err.println("Screenshot failed: " + e.getMessage());
             return null;
         }
     }
 
-    /**
-     * 上传截图到服务器
-     *
-     * @param imageBytes PNG 图片字节数组
-     * @return 上传结果
-     */
     public static String uploadScreenshot(byte[] imageBytes) {
+        return uploadScreenshot(imageBytes, null);
+    }
+
+    public static String uploadScreenshot(byte[] imageBytes, String agentId) {
         if (imageBytes == null || imageBytes.length == 0) {
-            return "ERROR: 截图数据为空";
+            return "ERROR: screenshot data is empty";
         }
 
         String serverUrl = ConfigUtil.get("server.url", "http://192.168.31.88:8866");
@@ -71,11 +65,13 @@ public class ScreenshotService {
             connection.setDoOutput(true);
             connection.setRequestMethod("POST");
             connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
+            if (agentId != null && !agentId.trim().isEmpty()) {
+                connection.setRequestProperty("X-Agent-Id", agentId.trim());
+            }
             connection.setConnectTimeout(10000);
             connection.setReadTimeout(30000);
 
             try (OutputStream os = connection.getOutputStream()) {
-                // 写入 multipart header
                 String header = "--" + boundary + "\r\n"
                         + "Content-Disposition: form-data; name=\"file\"; filename=\"" + fileName + "\"\r\n"
                         + "Content-Type: image/png\r\n\r\n";
@@ -90,52 +86,48 @@ public class ScreenshotService {
             String responseBody = readResponse(connection);
 
             if (responseCode == 200) {
-                System.out.println("截图上传成功: " + responseBody);
+                System.out.println("Screenshot uploaded: " + responseBody);
                 return "OK: " + responseBody;
-            } else {
-                System.err.println("截图上传失败，HTTP " + responseCode + ": " + responseBody);
-                return "ERROR: HTTP " + responseCode + " - " + responseBody;
             }
+            System.err.println("Screenshot upload failed, HTTP " + responseCode + ": " + responseBody);
+            return "ERROR: HTTP " + responseCode + " - " + responseBody;
         } catch (Exception e) {
-            System.err.println("截图上传异常: " + e.getMessage());
+            System.err.println("Screenshot upload error: " + e.getMessage());
             return "ERROR: " + e.getMessage();
         }
     }
 
-    /**
-     * 读取 HTTP 响应内容
-     */
     private static String readResponse(HttpURLConnection connection) {
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(connection.getInputStream(), "UTF-8"))) {
-            StringBuilder sb = new StringBuilder();
-            String line;
-            while ((line = reader.readLine()) != null) {
-                sb.append(line);
-            }
-            return sb.toString();
+            return readAll(reader);
         } catch (IOException e) {
+            if (connection.getErrorStream() == null) {
+                return e.getMessage();
+            }
             try (BufferedReader reader = new BufferedReader(
                     new InputStreamReader(connection.getErrorStream(), "UTF-8"))) {
-                StringBuilder sb = new StringBuilder();
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    sb.append(line);
-                }
-                return sb.toString();
+                return readAll(reader);
             } catch (IOException ex) {
                 return e.getMessage();
             }
         }
     }
 
-    /**
-     * 截屏并上传（一步完成）
-     *
-     * @return 上传结果
-     */
+    private static String readAll(BufferedReader reader) throws IOException {
+        StringBuilder sb = new StringBuilder();
+        String line;
+        while ((line = reader.readLine()) != null) {
+            sb.append(line);
+        }
+        return sb.toString();
+    }
+
     public static String takeAndUpload() {
-        byte[] imageBytes = captureScreen();
-        return uploadScreenshot(imageBytes);
+        return uploadScreenshot(captureScreen());
+    }
+
+    public static String takeAndUpload(String agentId) {
+        return uploadScreenshot(captureScreen(), agentId);
     }
 }

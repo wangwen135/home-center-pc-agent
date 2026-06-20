@@ -37,3 +37,7 @@ AGENTS.md
 
 # AI dev script (local only)
 dev-restart.sh
+
+# Local agent runtime config
+pc-agent.local.conf
+pc-agent.state

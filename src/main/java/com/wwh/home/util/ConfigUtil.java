@@ -22,8 +22,7 @@ public class ConfigUtil {
      * 加载配置文件
      */
     private static void loadConfig() {
-        String jarPath = getJarDir();
-        File configFile = new File(jarPath, CONFIG_FILE_NAME);
+        File configFile = getConfigFile();
 
         if (configFile.exists()) {
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(configFile), "UTF-8"))) {
@@ -35,6 +34,27 @@ public class ConfigUtil {
         } else {
             System.out.println("配置文件不存在，使用默认配置: " + configFile.getAbsolutePath());
         }
+    }
+
+    public static File getConfigFile() {
+        String explicitConfig = System.getProperty("pc.agent.config");
+        if (explicitConfig == null || explicitConfig.trim().isEmpty()) {
+            explicitConfig = System.getenv("PC_AGENT_CONFIG");
+        }
+        if (explicitConfig != null && !explicitConfig.trim().isEmpty()) {
+            return new File(explicitConfig.trim());
+        }
+
+        String jarPath = getJarDir();
+        return new File(jarPath, CONFIG_FILE_NAME);
+    }
+
+    public static File getConfigDir() {
+        File parent = getConfigFile().getAbsoluteFile().getParentFile();
+        if (parent != null) {
+            return parent;
+        }
+        return new File(".");
     }
 
     /**
@@ -74,6 +94,16 @@ public class ConfigUtil {
      */
     public static String get(String key) {
         return get(key, "");
+    }
+
+    public static int getInt(String key, int defaultValue) {
+        String value = get(key, String.valueOf(defaultValue));
+        try {
+            return Integer.parseInt(value.trim());
+        } catch (Exception e) {
+            System.err.println("Invalid integer config " + key + "=" + value + ", use default " + defaultValue);
+            return defaultValue;
+        }
     }
 
     /**
